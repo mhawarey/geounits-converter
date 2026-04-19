@@ -33,11 +33,6 @@ A professional, browser-based unit converter tailored for geodesists, surveyors,
 open index.html
 ```
 
-### GitHub Pages
-1. Push to a GitHub repository
-2. Go to **Settings → Pages → Source → main / root**
-3. Live at `https://<username>.github.io/<repo-name>/`
-
 ## Geodetic Constants Included
 
 - 1 Nautical Mile = 1852 m (= 1 arcminute of latitude)
