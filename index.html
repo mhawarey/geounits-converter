@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GeoUnits — Geomatics Unit Converter</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --surface: #111827;
+    --surface2: #1a2235;
+    --border: #1e2d45;
+    --accent: #00e5ff;
+    --accent2: #ff6b35;
+    --accent3: #7fff6e;
+    --text: #e8edf5;
+    --muted: #5a6a85;
+    --grid: rgba(0, 229, 255, 0.04);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Glow orbs */
+  .orb {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(100px);
+    opacity: 0.12;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .orb-1 { width: 500px; height: 500px; background: var(--accent); top: -100px; left: -100px; }
+  .orb-2 { width: 400px; height: 400px; background: var(--accent2); bottom: -100px; right: -50px; }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 48px 24px 80px;
+  }
+
+  header {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    margin-bottom: 8px;
+  }
+
+  .logo {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: rgba(0,229,255,0.08);
+    border: 1px solid rgba(0,229,255,0.2);
+    padding: 4px 10px;
+    border-radius: 2px;
+  }
+
+  h1 {
+    font-size: clamp(32px, 5vw, 52px);
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -1px;
+    margin-bottom: 6px;
+  }
+
+  h1 span { color: var(--accent); }
+
+  .subtitle {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    margin-bottom: 40px;
+  }
+
+  /* Category tabs */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    margin-bottom: 32px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0;
+  }
+
+  .tab {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 10px 16px;
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    position: relative;
+    transition: color 0.2s;
+    white-space: nowrap;
+  }
+
+  .tab::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0; right: 0;
+    height: 2px;
+    background: var(--accent);
+    transform: scaleX(0);
+    transition: transform 0.2s;
+  }
+
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--accent); }
+  .tab.active::after { transform: scaleX(1); }
+
+  /* Converter panel */
+  .panel {
+    display: none;
+    animation: fadeIn 0.3s ease;
+  }
+  .panel.active { display: block; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .converter-grid {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 16px;
+    align-items: start;
+    margin-bottom: 24px;
+  }
+
+  @media (max-width: 600px) {
+    .converter-grid { grid-template-columns: 1fr; }
+    .swap-btn { transform: rotate(90deg); }
+  }
+
+  .field-group { display: flex; flex-direction: column; gap: 8px; }
+
+  label {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  select, input[type="number"] {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    font-size: 15px;
+    padding: 12px 16px;
+    border-radius: 6px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    width: 100%;
+    -moz-appearance: textfield;
+  }
+
+  input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+  select {
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%235a6a85' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14L2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    padding-right: 36px;
+  }
+
+  input:focus, select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(0,229,255,0.1);
+  }
+
+  .result-input {
+    background: var(--surface2);
+    border-color: rgba(0,229,255,0.2);
+    color: var(--accent);
+    font-weight: 600;
+    font-size: 18px;
+  }
+
+  .swap-btn {
+    align-self: flex-end;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--accent);
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s, transform 0.3s;
+    flex-shrink: 0;
+    margin-top: 28px;
+  }
+
+  .swap-btn:hover {
+    background: rgba(0,229,255,0.1);
+    transform: rotate(180deg);
+  }
+
+  /* Quick reference table */
+  .ref-section {
+    margin-top: 40px;
+  }
+
+  .ref-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .ref-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .ref-table {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 10px;
+  }
+
+  .ref-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px 16px;
+    transition: border-color 0.2s;
+    cursor: default;
+  }
+
+  .ref-card:hover { border-color: rgba(0,229,255,0.3); }
+
+  .ref-from {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    color: var(--accent2);
+    margin-bottom: 4px;
+  }
+
+  .ref-to {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  .ref-to strong {
+    color: var(--text);
+    font-weight: 600;
+  }
+
+  /* Formula display */
+  .formula-bar {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent3);
+    border-radius: 6px;
+    padding: 12px 16px;
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    color: var(--accent3);
+    margin-bottom: 20px;
+    min-height: 40px;
+    transition: opacity 0.3s;
+  }
+
+  .formula-label {
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+
+  /* Special: DMS panel */
+  .dms-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr) auto repeat(3, 1fr);
+    gap: 10px;
+    align-items: end;
+    margin-bottom: 16px;
+  }
+
+  @media (max-width: 640px) {
+    .dms-grid { grid-template-columns: 1fr 1fr 1fr; }
+    .dms-swap { display: none; }
+  }
+
+  .dms-dd {
+    grid-column: span 2;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+</style>
+</head>
+<body>
+
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+
+<div class="wrapper">
+  <div style="margin-bottom:24px">
+    <header>
+      <span class="logo">GeoUnits v1.0</span>
+    </header>
+    <h1>Geomatics <span>Unit</span><br>Converter</h1>
+    <p class="subtitle">// angles · distances · coordinates · time · area · velocity</p>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('angles')">Angles</button>
+    <button class="tab" onclick="switchTab('dms')">DMS ↔ DD</button>
+    <button class="tab" onclick="switchTab('distance')">Distance</button>
+    <button class="tab" onclick="switchTab('area')">Area</button>
+    <button class="tab" onclick="switchTab('velocity')">Velocity</button>
+    <button class="tab" onclick="switchTab('time')">Time</button>
+    <button class="tab" onclick="switchTab('pressure')">Pressure</button>
+    <button class="tab" onclick="switchTab('temperature')">Temperature</button>
+  </div>
+
+  <!-- ANGLES -->
+  <div class="panel active" id="panel-angles">
+    <div class="formula-bar" id="formula-angles">
+      <div class="formula-label">conversion formula</div>
+      <span id="ftext-angles">Select units to see formula</span>
+    </div>
+    <div class="converter-grid">
+      <div class="field-group">
+        <label>From Unit</label>
+        <select id="angles-from" onchange="convert('angles')">
+          <option value="deg">Degrees (°)</option>
+          <option value="rad">Radians (rad)</option>
+          <option value="grad">Gradians (gon)</option>
+          <option value="arcmin">Arcminutes (')</option>
+          <option value="arcsec">Arcseconds (")</option>
+          <option value="mas">Milliarcseconds (mas)</option>
+          <option value="rev">Revolutions</option>
+        </select>
+        <input type="number" id="angles-input" value="180" oninput="convert('angles')" placeholder="Enter value">
+      </div>
+      <button class="swap-btn" onclick="swap('angles')" title="Swap units">⇄</button>
+      <div class="field-group">
+        <label>To Unit</label>
+        <select id="angles-to" onchange="convert('angles')">
+          <option value="deg">Degrees (°)</option>
+          <option value="rad" selected>Radians (rad)</option>
+          <option value="grad">Gradians (gon)</option>
+          <option value="arcmin">Arcminutes (')</option>
+          <option value="arcsec">Arcseconds (")</option>
+          <option value="mas">Milliarcseconds (mas)</option>
+          <option value="rev">Revolutions</option>
+        </select>
+        <input type="number" id="angles-output" class="result-input" readonly placeholder="Result">
+      </div>
+    </div>
+    <div class="ref-section">
+      <div class="ref-title">Quick Reference</div>
+      <div class="ref-table">
+        <div class="ref-card"><div class="ref-from">1 Revolution</div><div class="ref-to">= <strong>360°</strong> = <strong>2π rad</strong> = <strong>400 gon</strong></div></div>
+        <div class="ref-card"><div class="ref-from">1 Degree</div><div class="ref-to">= <strong>60'</strong> = <strong>3600"</strong> = <strong>π/180 rad</strong></div></div>
+        <div class="ref-card"><div class="ref-from">1 Radian</div><div class="ref-to">= <strong>57.2958°</strong> = <strong>206264.806"</strong></div></div>
+        <div class="ref-card"><div class="ref-from">1 Gradian</div><div class="ref-to">= <strong>0.9°</strong> = <strong>π/200 rad</strong></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DMS ↔ DD -->
+  <div class="panel" id="panel-dms">
+    <div class="formula-bar">
+      <div class="formula-label">conversion formula</div>
+      DD = D + M/60 + S/3600 &nbsp;|&nbsp; D = floor(DD), M = floor((DD-D)×60), S = ((DD-D)×60-M)×60
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:16px">
+      <div>
+        <label style="display:block;margin-bottom:10px">Degrees / Minutes / Seconds</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">
+          <div class="field-group">
+            <label>D°</label>
+            <input type="number" id="dms-d" value="37" oninput="dmsToDD()" placeholder="0">
+          </div>
+          <div class="field-group">
+            <label>M'</label>
+            <input type="number" id="dms-m" value="30" min="0" max="59" oninput="dmsToDD()" placeholder="0">
+          </div>
+          <div class="field-group">
+            <label>S"</label>
+            <input type="number" id="dms-s" value="0" min="0" max="59.9999" step="0.0001" oninput="dmsToDD()" placeholder="0">
+          </div>
+        </div>
+        <select id="dms-hem" onchange="dmsToDD()" style="width:100%">
+          <option value="1">N / E (positive)</option>
+          <option value="-1">S / W (negative)</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label>Decimal Degrees (DD)</label>
+        <input type="number" id="dd-val" step="0.000001" value="37.5" oninput="ddToDMS()" placeholder="37.500000" style="margin-top:26px">
+        <div style="font-family:'Space Mono',monospace;font-size:11px;color:var(--accent);margin-top:8px" id="dms-pretty">37° 30' 00.0000"</div>
+      </div>
+    </div>
+
+    <div class="ref-section">
+      <div class="ref-title">Geodetic Coordinate Examples</div>
+      <div class="ref-table">
+        <div class="ref-card"><div class="ref-from">Equator</div><div class="ref-to">0° 00' 00" = <strong>0.000000°</strong></div></div>
+        <div class="ref-card"><div class="ref-from">North Pole</div><div class="ref-to">90° 00' 00" N = <strong>90.000000°</strong></div></div>
+        <div class="ref-card"><div class="ref-from">1 Arcsecond</div><div class="ref-to">≈ <strong>30.9 m</strong> at equator</div></div>
+        <div class="ref-card"><div class="ref-from">1 Arcminute</div><div class="ref-to">≈ <strong>1852 m</strong> (1 nautical mile)</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DISTANCE -->
+  <div class="panel" id="panel-distance">
+    <div class="formula-bar" id="formula-distance">
+      <div class="formula-label">conversion formula</div>
+      <span id="ftext-distance">Select units to see formula</span>
+    </div>
+    <div class="converter-grid">
+      <div class="field-group">
+        <label>From Unit</label>
+        <select id="distance-from" onchange="convert('distance')">
+          <option value="m">Metres (m)</option>
+          <option value="km">Kilometres (km)</option>
+          <option value="cm">Centimetres (cm)</option>
+          <option value="mm">Millimetres (mm)</option>
+          <option value="ft">Feet (ft)</option>
+          <option value="in">Inches (in)</option>
+          <option value="mi">Miles (mi)</option>
+          <option value="nmi">Nautical Miles (nmi)</option>
+          <option value="yd">Yards (yd)</option>
+          <option value="chain">Chains (ch)</option>
+          <option value="link">Links (lk)</option>
+          <option value="fathom">Fathoms</option>
+          <option value="au">Astronomical Units (AU)</option>
+          <option value="ly">Light Years (ly)</option>
+        </select>
+        <input type="number" id="distance-input" value="1" oninput="convert('distance')" placeholder="Enter value">
+      </div>
+      <button class="swap-btn" onclick="swap('distance')" title="Swap units">⇄</button>
+      <div class="field-group">
+        <label>To Unit</label>
+        <select id="distance-to" onchange="convert('distance')">
+          <option value="m">Metres (m)</option>
+          <option value="km">Kilometres (km)</option>
+          <option value="cm">Centimetres (cm)</option>
+          <option value="mm">Millimetres (mm)</option>
+          <option value="ft" selected>Feet (ft)</option>
+          <option value="in">Inches (in)</option>
+          <option value="mi">Miles (mi)</option>
+          <option value="nmi">Nautical Miles (nmi)</option>
+          <option value="yd">Yards (yd)</option>
+          <option value="chain">Chains (ch)</option>
+          <option value="link">Links (lk)</option>
+          <option value="fathom">Fathoms</option>
+          <option value="au">Astronomical Units (AU)</option>
+          <option value="ly">Light Years (ly)</option>
+        </select>
+        <input type="number" id="distance-output" class="result-input" readonly placeholder="Result">
+      </div>
+    </div>
+    <div class="ref-section">
+      <div class="ref-title">Geodetic Constants</div>
+      <div class="ref-table">
+        <div class="ref-card"><div class="ref-from">1 Nautical Mile</div><div class="ref-to">= <strong>1852 m</strong> exactly (1')</div></div>
+        <div class="ref-card"><div class="ref-from">1 Chain (Gunter)</div><div class="ref-to">= <strong>20.1168 m</strong> = 100 links</div></div>
+        <div class="ref-card"><div class="ref-from">Earth Radius (mean)</div><div class="ref-to">≈ <strong>6,371,000 m</strong></div></div>
+        <div class="ref-card"><div class="ref-from">1 AU</div><div class="ref-to">= <strong>149,597,870,700 m</strong></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AREA -->
+  <div class="panel" id="panel-area">
+    <div class="formula-bar" id="formula-area">
+      <div class="formula-label">conversion formula</div>
+      <span id="ftext-area">Select units to see formula</span>
+    </div>
+    <div class="converter-grid">
+      <div class="field-group">
+        <label>From Unit</label>
+        <select id="area-from" onchange="convert('area')">
+          <option value="m2">Square Metres (m²)</option>
+          <option value="km2">Square Kilometres (km²)</option>
+          <option value="cm2">Square Centimetres (cm²)</option>
+          <option value="ha">Hectares (ha)</option>
+          <option value="acre">Acres</option>
+          <option value="ft2">Square Feet (ft²)</option>
+          <option value="mi2">Square Miles (mi²)</option>
+          <option value="yd2">Square Yards (yd²)</option>
+          <option value="chain2">Square Chains</option>
+        </select>
+        <input type="number" id="area-input" value="1" oninput="convert('area')" placeholder="Enter value">
+      </div>
+      <button class="swap-btn" onclick="swap('area')" title="Swap units">⇄</button>
+      <div class="field-group">
+        <label>To Unit</label>
+        <select id="area-to" onchange="convert('area')">
+          <option value="m2">Square Metres (m²)</option>
+          <option value="km2">Square Kilometres (km²)</option>
+          <option value="cm2">Square Centimetres (cm²)</option>
+          <option value="ha" selected>Hectares (ha)</option>
+          <option value="acre">Acres</option>
+          <option value="ft2">Square Feet (ft²)</option>
+          <option value="mi2">Square Miles (mi²)</option>
+          <option value="yd2">Square Yards (yd²)</option>
+          <option value="chain2">Square Chains</option>
+        </select>
+        <input type="number" id="area-output" class="result-input" readonly placeholder="Result">
+      </div>
+    </div>
+    <div class="ref-section">
+      <div class="ref-title">Quick Reference</div>
+      <div class="ref-table">
+        <div class="ref-card"><div class="ref-from">1 Hectare</div><div class="ref-to">= <strong>10,000 m²</strong> = <strong>2.471 acres</strong></div></div>
+        <div class="ref-card"><div class="ref-from">1 Acre</div><div class="ref-to">= <strong>4046.856 m²</strong> = <strong>10 chains²</strong></div></div>
+        <div class="ref-card"><div class="ref-from">1 km²</div><div class="ref-to">= <strong>100 ha</strong> = <strong>247.1 acres</strong></div></div>
+        <div class="ref-card"><div class="ref-from">1 mi²</div><div class="ref-to">= <strong>640 acres</strong> = <strong>2.59 km²</strong></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VELOCITY -->
+  <div class="panel" id="panel-velocity">
+    <div class="formula-bar" id="formula-velocity">
+      <div class="formula-label">conversion formula</div>
+      <span id="ftext-velocity">Select units to see formula</span>
+    </div>
+    <div class="converter-grid">
+      <div class="field-group">
+        <label>From Unit</label>
+        <select id="velocity-from" onchange="convert('velocity')">
+          <option value="ms">m/s</option>
+          <option value="kmh">km/h</option>
+          <option value="mph">mph</option>
+          <option value="kn">Knots (kn)</option>
+          <option value="fts">ft/s</option>
+          <option value="mach">Mach (sea level)</option>
+          <option value="c">Speed of Light (c)</option>
+        </select>
+        <input type="number" id="velocity-input" value="7800" oninput="convert('velocity')" placeholder="Enter value">
+      </div>
+      <button class="swap-btn" onclick="swap('velocity')" title="Swap units">⇄</button>
+      <div class="field-group">
+        <label>To Unit</label>
+        <select id="velocity-to" onchange="convert('velocity')">
+          <option value="ms">m/s</option>
+          <option value="kmh" selected>km/h</option>
+          <option value="mph">mph</option>
+          <option value="kn">Knots (kn)</option>
+          <option value="fts">ft/s</option>
+          <option value="mach">Mach (sea level)</option>
+          <option value="c">Speed of Light (c)</option>
+        </select>
+        <input type="number" id="velocity-output" class="result-input" readonly placeholder="Result">
+      </div>
+    </div>
+    <div class="ref-section">
+      <div class="ref-title">Orbital & Geodetic Reference</div>
+      <div class="ref-table">
+        <div class="ref-card"><div class="ref-from">LEO Orbit</div><div class="ref-to">≈ <strong>7,800 m/s</strong> ≈ 28,080 km/h</div></div>
+        <div class="ref-card"><div class="ref-from">GPS Satellite</div><div class="ref-to">≈ <strong>3,874 m/s</strong> at MEO</div></div>
+        <div class="ref-card"><div class="ref-from">Earth Surface</div><div class="ref-to">≈ <strong>465 m/s</strong> (equator rotation)</div></div>
+        <div class="ref-card"><div class="ref-from">Speed of Sound</div><div class="ref-to">≈ <strong>340.3 m/s</strong> (Mach 1, sea level)</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TIME -->
+  <div class="panel" id="panel-time">
+    <div class="formula-bar" id="formula-time">
+      <div class="formula-label">conversion formula</div>
+      <span id="ftext-time">Select units to see formula</span>
+    </div>
+    <div class="converter-grid">
+      <div class="field-group">
+        <label>From Unit</label>
+        <select id="time-from" onchange="convert('time')">
+          <option value="s">Seconds (s)</option>
+          <option value="ms2">Milliseconds (ms)</option>
+          <option value="us">Microseconds (μs)</option>
+          <option value="ns">Nanoseconds (ns)</option>
+          <option value="min">Minutes</option>
+          <option value="hr">Hours</option>
+          <option value="day">Days</option>
+          <option value="week">Weeks</option>
+          <option value="julyr">Julian Years</option>
+          <option value="sidday">Sidereal Day</option>
+          <option value="solday">Solar Day</option>
+        </select>
+        <input type="number" id="time-input" value="86400" oninput="convert('time')" placeholder="Enter value">
+      </div>
+      <button class="swap-btn" onclick="swap('time')" title="Swap units">⇄</button>
+      <div class="field-group">
+        <label>To Unit</label>
+        <select id="time-to" onchange="convert('time')">
+          <option value="s">Seconds (s)</option>
+          <option value="ms2">Milliseconds (ms)</option>
+          <option value="us">Microseconds (μs)</option>
+          <option value="ns">Nanoseconds (ns)</option>
+          <option value="min">Minutes</option>
+          <option value="hr" selected>Hours</option>
+          <option value="day">Days</option>
+          <option value="week">Weeks</option>
+          <option value="julyr">Julian Years</option>
+          <option value="sidday">Sidereal Day</option>
+          <option value="solday">Solar Day</option>
+        </select>
+        <input type="number" id="time-output" class="result-input" readonly placeholder="Result">
+      </div>
+    </div>
+    <div class="ref-section">
+      <div class="ref-title">Geodetic Time Constants</div>
+      <div class="ref-table">
+        <div class="ref-card"><div class="ref-from">Sidereal Day</div><div class="ref-to">= <strong>86,164.1 s</strong> (23h 56m 4.1s)</div></div>
+        <div class="ref-card"><div class="ref-from">Solar Day</div><div class="ref-to">= <strong>86,400 s</strong> exactly</div></div>
+        <div class="ref-card"><div class="ref-from">Julian Year</div><div class="ref-to">= <strong>365.25 days</strong> = 31,557,600 s</div></div>
+        <div class="ref-card"><div class="ref-from">GPS Epoch</div><div class="ref-to">Jan 6, <strong>1980</strong> 00:00:00 UTC</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PRESSURE -->
+  <div class="panel" id="panel-pressure">
+    <div class="formula-bar" id="formula-pressure">
+      <div class="formula-label">conversion formula</div>
+      <span id="ftext-pressure">Select units to see formula</span>
+    </div>
+    <div class="converter-grid">
+      <div class="field-group">
+        <label>From Unit</label>
+        <select id="pressure-from" onchange="convert('pressure')">
+          <option value="pa">Pascals (Pa)</option>
+          <option value="hpa">Hectopascals (hPa)</option>
+          <option value="kpa">Kilopascals (kPa)</option>
+          <option value="mpa">Megapascals (MPa)</option>
+          <option value="bar">Bar</option>
+          <option value="mbar">Millibar (mbar)</option>
+          <option value="atm">Atmospheres (atm)</option>
+          <option value="psi">PSI</option>
+          <option value="mmhg">mmHg (Torr)</option>
+          <option value="inhg">inHg</option>
+        </select>
+        <input type="number" id="pressure-input" value="1013.25" oninput="convert('pressure')" placeholder="Enter value">
+      </div>
+      <button class="swap-btn" onclick="swap('pressure')" title="Swap units">⇄</button>
+      <div class="field-group">
+        <label>To Unit</label>
+        <select id="pressure-to" onchange="convert('pressure')">
+          <option value="pa">Pascals (Pa)</option>
+          <option value="hpa" selected>Hectopascals (hPa)</option>
+          <option value="kpa">Kilopascals (kPa)</option>
+          <option value="mpa">Megapascals (MPa)</option>
+          <option value="bar">Bar</option>
+          <option value="mbar">Millibar (mbar)</option>
+          <option value="atm">Atmospheres (atm)</option>
+          <option value="psi">PSI</option>
+          <option value="mmhg">mmHg (Torr)</option>
+          <option value="inhg">inHg</option>
+        </select>
+        <input type="number" id="pressure-output" class="result-input" readonly placeholder="Result">
+      </div>
+    </div>
+    <div class="ref-section">
+      <div class="ref-title">Atmospheric Reference</div>
+      <div class="ref-table">
+        <div class="ref-card"><div class="ref-from">Standard Atmosphere</div><div class="ref-to">= <strong>1013.25 hPa</strong> = 101,325 Pa</div></div>
+        <div class="ref-card"><div class="ref-from">1 Bar</div><div class="ref-to">= <strong>1000 hPa</strong> = 100,000 Pa</div></div>
+        <div class="ref-card"><div class="ref-from">Tropopause</div><div class="ref-to">≈ <strong>226 hPa</strong> at ~11 km</div></div>
+        <div class="ref-card"><div class="ref-from">Tropospheric Delay</div><div class="ref-to">∝ pressure gradient</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TEMPERATURE -->
+  <div class="panel" id="panel-temperature">
+    <div class="formula-bar">
+      <div class="formula-label">conversion formula</div>
+      °C = (°F − 32) × 5/9 &nbsp;|&nbsp; K = °C + 273.15 &nbsp;|&nbsp; °R = K × 9/5
+    </div>
+    <div class="converter-grid">
+      <div class="field-group">
+        <label>From Unit</label>
+        <select id="temp-from" onchange="convertTemp()">
+          <option value="c">Celsius (°C)</option>
+          <option value="f">Fahrenheit (°F)</option>
+          <option value="k">Kelvin (K)</option>
+          <option value="r">Rankine (°R)</option>
+        </select>
+        <input type="number" id="temp-input" value="20" oninput="convertTemp()" placeholder="Enter value">
+      </div>
+      <button class="swap-btn" onclick="swapTemp()" title="Swap units">⇄</button>
+      <div class="field-group">
+        <label>To Unit</label>
+        <select id="temp-to" onchange="convertTemp()">
+          <option value="c">Celsius (°C)</option>
+          <option value="f" selected>Fahrenheit (°F)</option>
+          <option value="k">Kelvin (K)</option>
+          <option value="r">Rankine (°R)</option>
+        </select>
+        <input type="number" id="temp-output" class="result-input" readonly placeholder="Result">
+      </div>
+    </div>
+    <div class="ref-section">
+      <div class="ref-title">Atmospheric & Geodetic Reference</div>
+      <div class="ref-table">
+        <div class="ref-card"><div class="ref-from">Standard Atmosphere</div><div class="ref-to">= <strong>15°C</strong> = 288.15 K</div></div>
+        <div class="ref-card"><div class="ref-from">Absolute Zero</div><div class="ref-to">= <strong>−273.15°C</strong> = 0 K</div></div>
+        <div class="ref-card"><div class="ref-from">Lapse Rate (ISA)</div><div class="ref-to">= <strong>−6.5°C/km</strong></div></div>
+        <div class="ref-card"><div class="ref-from">Tropopause Temp</div><div class="ref-to">≈ <strong>−56.5°C</strong> = 216.65 K</div></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── Conversion factors (to base SI unit) ──────────────────────────────────────
+const FACTORS = {
+  angles: {
+    deg: 1,
+    rad: 180 / Math.PI,
+    grad: 0.9,
+    arcmin: 1 / 60,
+    arcsec: 1 / 3600,
+    mas: 1 / 3600000,
+    rev: 360
+  },
+  distance: {
+    m: 1,
+    km: 1000,
+    cm: 0.01,
+    mm: 0.001,
+    ft: 0.3048,
+    in: 0.0254,
+    mi: 1609.344,
+    nmi: 1852,
+    yd: 0.9144,
+    chain: 20.1168,
+    link: 0.201168,
+    fathom: 1.8288,
+    au: 149597870700,
+    ly: 9.4607304725808e15
+  },
+  area: {
+    m2: 1,
+    km2: 1e6,
+    cm2: 1e-4,
+    ha: 10000,
+    acre: 4046.8564224,
+    ft2: 0.09290304,
+    mi2: 2589988.110336,
+    yd2: 0.83612736,
+    chain2: 404.68564224
+  },
+  velocity: {
+    ms: 1,
+    kmh: 1 / 3.6,
+    mph: 0.44704,
+    kn: 0.514444,
+    fts: 0.3048,
+    mach: 340.3,
+    c: 299792458
+  },
+  time: {
+    s: 1,
+    ms2: 0.001,
+    us: 1e-6,
+    ns: 1e-9,
+    min: 60,
+    hr: 3600,
+    day: 86400,
+    week: 604800,
+    julyr: 31557600,
+    sidday: 86164.1,
+    solday: 86400
+  },
+  pressure: {
+    pa: 1,
+    hpa: 100,
+    kpa: 1000,
+    mpa: 1e6,
+    bar: 100000,
+    mbar: 100,
+    atm: 101325,
+    psi: 6894.757,
+    mmhg: 133.322,
+    inhg: 3386.389
+  }
+};
+
+// ── Formula labels ─────────────────────────────────────────────────────────────
+const UNIT_LABELS = {
+  angles: { deg:'°', rad:'rad', grad:'gon', arcmin:"'", arcsec:'"', mas:'mas', rev:'rev' },
+  distance: { m:'m', km:'km', cm:'cm', mm:'mm', ft:'ft', in:'in', mi:'mi', nmi:'nmi', yd:'yd', chain:'ch', link:'lk', fathom:'fathom', au:'AU', ly:'ly' },
+  area: { m2:'m²', km2:'km²', cm2:'cm²', ha:'ha', acre:'acre', ft2:'ft²', mi2:'mi²', yd2:'yd²', chain2:'ch²' },
+  velocity: { ms:'m/s', kmh:'km/h', mph:'mph', kn:'kn', fts:'ft/s', mach:'Mach', c:'c' },
+  time: { s:'s', ms2:'ms', us:'μs', ns:'ns', min:'min', hr:'h', day:'day', week:'wk', julyr:'Jul.yr', sidday:'sid.day', solday:'sol.day' },
+  pressure: { pa:'Pa', hpa:'hPa', kpa:'kPa', mpa:'MPa', bar:'bar', mbar:'mbar', atm:'atm', psi:'psi', mmhg:'mmHg', inhg:'inHg' }
+};
+
+function convert(cat) {
+  const fromSel = document.getElementById(cat + '-from');
+  const toSel   = document.getElementById(cat + '-to');
+  const input   = document.getElementById(cat + '-input');
+  const output  = document.getElementById(cat + '-output');
+
+  const from = fromSel.value;
+  const to   = toSel.value;
+  const val  = parseFloat(input.value);
+
+  if (isNaN(val)) { output.value = ''; return; }
+
+  const fac = FACTORS[cat];
+  const result = val * fac[from] / fac[to];
+  output.value = formatResult(result);
+
+  // formula display
+  const lb = UNIT_LABELS[cat];
+  const ratio = fac[from] / fac[to];
+  const ftxt = document.getElementById('ftext-' + cat);
+  if (ftxt) {
+    ftxt.textContent = `1 ${lb[from]} = ${formatResult(ratio)} ${lb[to]}   →   result = value × ${formatResult(ratio)}`;
+  }
+}
+
+function swap(cat) {
+  const fromSel = document.getElementById(cat + '-from');
+  const toSel   = document.getElementById(cat + '-to');
+  const input   = document.getElementById(cat + '-input');
+  const output  = document.getElementById(cat + '-output');
+
+  const tmpFrom = fromSel.value;
+  fromSel.value = toSel.value;
+  toSel.value = tmpFrom;
+
+  const tmpVal = input.value;
+  input.value = output.value;
+  convert(cat);
+}
+
+function formatResult(n) {
+  if (Math.abs(n) === 0) return '0';
+  if (Math.abs(n) >= 1e10 || (Math.abs(n) < 1e-6 && n !== 0)) {
+    return n.toExponential(6);
+  }
+  // Up to 10 significant figures, trim trailing zeros
+  let s = parseFloat(n.toPrecision(10)).toString();
+  return s;
+}
+
+// ── DMS ↔ DD ────────────────────────────────────────────────────────────────
+function dmsToDD() {
+  const d = parseFloat(document.getElementById('dms-d').value) || 0;
+  const m = parseFloat(document.getElementById('dms-m').value) || 0;
+  const s = parseFloat(document.getElementById('dms-s').value) || 0;
+  const hem = parseInt(document.getElementById('dms-hem').value);
+  const dd = hem * (Math.abs(d) + m / 60 + s / 3600);
+  document.getElementById('dd-val').value = parseFloat(dd.toFixed(8));
+  updateDMSPretty(d, m, s);
+}
+
+function ddToDMS() {
+  let dd = parseFloat(document.getElementById('dd-val').value);
+  if (isNaN(dd)) return;
+  document.getElementById('dms-hem').value = dd < 0 ? '-1' : '1';
+  dd = Math.abs(dd);
+  const d = Math.floor(dd);
+  const mFull = (dd - d) * 60;
+  const m = Math.floor(mFull);
+  const s = parseFloat(((mFull - m) * 60).toFixed(4));
+  document.getElementById('dms-d').value = d;
+  document.getElementById('dms-m').value = m;
+  document.getElementById('dms-s').value = s;
+  updateDMSPretty(d, m, s);
+}
+
+function updateDMSPretty(d, m, s) {
+  document.getElementById('dms-pretty').textContent =
+    `${d}° ${String(m).padStart(2,'0')}' ${s.toFixed(4).padStart(7,'0')}"`;
+}
+
+// ── Temperature ────────────────────────────────────────────────────────────────
+function toKelvin(val, unit) {
+  switch(unit) {
+    case 'c': return val + 273.15;
+    case 'f': return (val - 32) * 5/9 + 273.15;
+    case 'k': return val;
+    case 'r': return val * 5/9;
+  }
+}
+
+function fromKelvin(k, unit) {
+  switch(unit) {
+    case 'c': return k - 273.15;
+    case 'f': return (k - 273.15) * 9/5 + 32;
+    case 'k': return k;
+    case 'r': return k * 9/5;
+  }
+}
+
+function convertTemp() {
+  const from = document.getElementById('temp-from').value;
+  const to   = document.getElementById('temp-to').value;
+  const val  = parseFloat(document.getElementById('temp-input').value);
+  if (isNaN(val)) return;
+  const result = fromKelvin(toKelvin(val, from), to);
+  document.getElementById('temp-output').value = parseFloat(result.toFixed(6));
+}
+
+function swapTemp() {
+  const fromSel = document.getElementById('temp-from');
+  const toSel   = document.getElementById('temp-to');
+  const input   = document.getElementById('temp-input');
+  const output  = document.getElementById('temp-output');
+  const tmp = fromSel.value;
+  fromSel.value = toSel.value;
+  toSel.value = tmp;
+  input.value = output.value;
+  convertTemp();
+}
+
+// ── Tab switching ───────────────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+  document.getElementById('panel-' + name).classList.add('active');
+  // trigger initial conversion
+  if (name !== 'dms' && name !== 'temperature') convert(name === 'temp' ? 'temperature' : name);
+  if (name === 'temperature') convertTemp();
+  if (name === 'dms') dmsToDD();
+}
+
+// ── Author Credit (persistent) ────────────────────────────────────────────────
+(function injectCredit() {
+  const css = `
+    #geo-credit {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      z-index: 9999;
+      background: rgba(10,14,26,0.92);
+      border-top: 1px solid rgba(0,229,255,0.15);
+      backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      padding: 8px 24px;
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 1.5px;
+      color: #5a6a85;
+      user-select: none;
+      pointer-events: auto;
+    }
+    #geo-credit a {
+      color: #00e5ff;
+      text-decoration: none;
+      transition: opacity 0.2s;
+    }
+    #geo-credit a:hover { opacity: 0.7; }
+    #geo-credit .sep { color: #1e2d45; }
+  `;
+  const style = document.createElement('style');
+  style.textContent = css;
+  document.head.appendChild(style);
+
+  const bar = document.createElement('div');
+  bar.id = 'geo-credit';
+  bar.innerHTML = `
+    <span>© Dr. Mosab Hawarey</span>
+    <span class="sep">|</span>
+    <a href="https://github.com/mhawarey" target="_blank" rel="noopener">GitHub</a>
+    <span class="sep">|</span>
+    <a href="https://twitter.com/DrHawarey" target="_blank" rel="noopener">@DrHawarey</a>
+    <span class="sep">|</span>
+    <a href="https://www.linkedin.com/in/DrHawarey" target="_blank" rel="noopener">LinkedIn</a>
+    <span class="sep">|</span>
+    <span>GeoUnits v1.0</span>
+  `;
+  document.body.appendChild(bar);
+
+  // Re-inject if someone removes it from the DOM
+  const observer = new MutationObserver(() => {
+    if (!document.getElementById('geo-credit')) {
+      document.body.appendChild(bar);
+    }
+  });
+  observer.observe(document.body, { childList: true });
+})();
+
+// ── Init ────────────────────────────────────────────────────────────────────────
+window.onload = () => {
+  convert('angles');
+  convert('distance');
+  convert('area');
+  convert('velocity');
+  convert('time');
+  convert('pressure');
+  convertTemp();
+  dmsToDD();
+};
+</script>
+</body>
+</html>
