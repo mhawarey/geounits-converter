@@ -1,5 +1,7 @@
 # GeoUnits — Geomatics Unit Converter
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 A professional, browser-based unit converter tailored for geodesists, surveyors, GIS engineers, and remote sensing specialists. No dependencies, no build step — just open `index.html`.
 
 ![GeoUnits Preview](preview.png)
@@ -46,6 +48,7 @@ open index.html
 ## Author
 
 **Dr. Mosab Hawarey**
+>
 PhD, Geodetic & Photogrammetric Engineering (ITU) | MSc, Geomatics (Purdue) | MBA (Wales) | BSc, MSc (METU)
 
 - GitHub: https://github.com/mhawarey
@@ -54,4 +57,4 @@ PhD, Geodetic & Photogrammetric Engineering (ITU) | MSc, Geomatics (Purdue) | MB
 
 ## License
 
-MIT License.
+MIT License
